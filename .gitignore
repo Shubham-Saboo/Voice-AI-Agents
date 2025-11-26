@@ -1,0 +1,63 @@
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Node
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Cache
+.cache/
+.pytest_cache/
+.ruff_cache/
+.parcel-cache/
+
+# Misc
+*.pem
+.vercel/
+
