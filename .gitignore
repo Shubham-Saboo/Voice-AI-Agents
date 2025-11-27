@@ -57,7 +57,16 @@ dist/
 .ruff_cache/
 .parcel-cache/
 
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+chroma_db/
+
 # Misc
 *.pem
 .vercel/
+
+
 

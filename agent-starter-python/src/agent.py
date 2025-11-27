@@ -1,5 +1,7 @@
 import logging
 import os
+import json
+from typing import Optional
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -12,9 +14,20 @@ from livekit.agents import (
     cli,
     inference,
     room_io,
+    function_tool,
+    RunContext,
 )
 from livekit.plugins import noise_cancellation, silero, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from db_service import db_service
+from openai import OpenAI
+
+# Configure logging with more detail
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 logger = logging.getLogger("agent")
 
@@ -24,28 +37,250 @@ load_dotenv(".env.local")
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions="""You are a helpful healthcare provider search assistant.
+            
+            Workflow:
+            1. Use extract_search_criteria to extract and map entities from user query
+            2. Use query_providers to fetch matching providers from database
+            3. Use get_provider_details for follow-up questions about specific providers
+            4. Use answer_question_with_context to format responses naturally
+            
+            Always be conversational and helpful. Extract criteria intelligently - map medical conditions 
+            to specialties (e.g., "heart problems" → Cardiology), normalize state names, etc.""",
         )
+        self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    @function_tool
+    async def extract_search_criteria(
+        self,
+        context: RunContext,
+        user_query: str,
+    ) -> str:
+        """Extract search criteria from user query using LLM.
+        
+        Intelligently extracts and maps:
+        - "radiologists" → specialty="Radiology"
+        - "heart problems" → specialty="Cardiology"
+        - "Texas" → state="TX"
+        - "speak Russian" → language="Russian"
+        - "accept Aetna" → insurance="Aetna"
+        
+        Returns JSON with database-ready values.
+        """
+        logger.info(f"🔍 Extracting criteria from: '{user_query}'")
+        
+        try:
+            # Get available values from database for context
+            available_specialties = db_service.get_available_specialties()
+            available_languages = db_service.get_available_languages()
+            available_insurance = db_service.get_available_insurance()
+            
+            logger.debug(f"Available specialties: {len(available_specialties)}")
+            logger.debug(f"Available languages: {len(available_languages)}")
+            logger.debug(f"Available insurance: {len(available_insurance)}")
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"""You are an expert at extracting healthcare provider search criteria.
+
+Database Schema:
+- state: 2-letter code (e.g., "TX" for Texas, "CA" for California)
+- city: City name
+- specialty: Medical specialty (exact match required)
+- language: Language name (exact match required)
+- insurance: Insurance name (exact match required)
+- provider_name: Full name or partial name
+
+Available Specialties: {', '.join(available_specialties)}
+Available Languages: {', '.join(available_languages)}
+Available Insurance: {', '.join(available_insurance)}
+
+Your task:
+1. Extract search criteria from user query
+2. Map natural language to exact database values:
+   - "radiologist", "radiologists" → specialty="Radiology"
+   - "heart problems", "cardiac issues", "heart doctor" → specialty="Cardiology"
+   - "kidney problems" → specialty="Nephrology"
+   - "pediatrician" → specialty="Pediatrics"
+   - State names → 2-letter codes ("Texas" → "TX", "California" → "CA")
+   - Use medical knowledge to map conditions to specialties
+3. Return JSON with extracted values (use null for missing fields)
+
+Return JSON format:
+{{
+    "state": "TX" or null,
+    "city": "Austin" or null,
+    "specialty": "Radiology" or null,
+    "language": "Russian" or null,
+    "insurance": "Aetna" or null,
+    "provider_name": "Dr. Susan Lee" or null
+}}"""
+                    },
+                    {
+                        "role": "user",
+                        "content": user_query
+                    }
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.1
+            )
+            
+            criteria_json = response.choices[0].message.content
+            logger.info(f"✅ Extracted criteria: {criteria_json}")
+            return criteria_json
+            
+        except Exception as e:
+            logger.error(f"❌ Error extracting criteria: {e}", exc_info=True)
+            return json.dumps({
+                "state": None,
+                "city": None,
+                "specialty": None,
+                "language": None,
+                "insurance": None,
+                "provider_name": None,
+                "error": str(e)
+            })
+
+    @function_tool
+    async def query_providers(
+        self,
+        context: RunContext,
+        criteria_json: str,
+        limit: int = 5,
+    ) -> str:
+        """Query providers from database using extracted criteria.
+        
+        Args:
+            criteria_json: JSON string with search criteria from extract_search_criteria
+            limit: Maximum number of results (default: 5)
+        
+        Returns:
+            JSON string with provider results
+        """
+        logger.info(f"📊 Querying providers with criteria: {criteria_json}")
+        
+        try:
+            criteria = json.loads(criteria_json)
+            
+            # Query database
+            results = db_service.query_providers(
+                state=criteria.get("state"),
+                city=criteria.get("city"),
+                specialty=criteria.get("specialty"),
+                language=criteria.get("language"),
+                insurance=criteria.get("insurance"),
+                provider_name=criteria.get("provider_name"),
+                limit=limit
+            )
+            
+            logger.info(f"✅ Found {len(results)} providers")
+            
+            return json.dumps({
+                "providers": results,
+                "count": len(results)
+            }, default=str)
+            
+        except Exception as e:
+            logger.error(f"❌ Error querying providers: {e}", exc_info=True)
+            return json.dumps({"providers": [], "count": 0, "error": str(e)})
+
+    @function_tool
+    async def get_provider_details(
+        self,
+        context: RunContext,
+        provider_id: int,
+    ) -> str:
+        """Get complete details for a specific provider by ID.
+        
+        Use this for follow-up questions like:
+        - "What's their phone number?"
+        - "What's their email?"
+        - "What insurance do they accept?"
+        
+        Args:
+            provider_id: The provider's ID number
+        
+        Returns:
+            JSON string with complete provider information
+        """
+        logger.info(f"📋 Getting details for provider ID: {provider_id}")
+        
+        try:
+            provider = db_service.get_provider_by_id(provider_id)
+            
+            if not provider:
+                logger.warning(f"⚠️ Provider ID {provider_id} not found")
+                return json.dumps({"provider": None, "found": False})
+            
+            logger.info(f"✅ Found provider: {provider['full_name']}")
+            return json.dumps({"provider": provider, "found": True}, default=str)
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting provider details: {e}", exc_info=True)
+            return json.dumps({"provider": None, "found": False, "error": str(e)})
+
+    @function_tool
+    async def answer_question_with_context(
+        self,
+        context: RunContext,
+        context_data: str,
+        question: str,
+    ) -> str:
+        """Answer a question using provided context data.
+        
+        Args:
+            context_data: JSON string from query_providers or get_provider_details
+            question: The question to answer
+        
+        Returns:
+            Natural language answer
+        """
+        logger.info(f"❓ Answering: '{question}'")
+        logger.debug(f"📋 Context data length: {len(context_data)} characters")
+        
+        try:
+            parsed_context = json.loads(context_data)
+            context_str = json.dumps(parsed_context, indent=2, default=str)
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a helpful healthcare provider assistant.
+                        Answer questions based on the provided context data.
+                        
+                        Guidelines:
+                        - Be concise, accurate, and conversational
+                        - Use natural language suitable for voice interaction
+                        - If the context doesn't contain the answer, say so clearly
+                        - Format lists naturally (e.g., "Aetna, Cigna, and Blue Cross")
+                        - Be friendly and helpful"""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""Context Data:
+{context_str}
+
+Question: {question}
+
+Please answer the question based on the context data above. If the context doesn't contain enough information to answer the question, say so clearly."""
+                    }
+                ],
+                temperature=0.3,
+                max_tokens=300
+            )
+            
+            answer = response.choices[0].message.content.strip()
+            logger.info(f"💬 Generated answer: {answer[:100]}...")
+            return answer
+            
+        except Exception as e:
+            logger.error(f"❌ Error answering question: {e}", exc_info=True)
+            return "I encountered an error while generating an answer. Please try again."
 
 
 server = AgentServer()
@@ -61,7 +296,6 @@ server.setup_fnc = prewarm
 @server.rtc_session()
 async def my_agent(ctx: JobContext):
     # Logging setup
-    # Add any other context you want in all log entries here
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
@@ -69,10 +303,9 @@ async def my_agent(ctx: JobContext):
     # Check if we should use OpenAI Realtime API (for local or cloud use)
     use_realtime = os.getenv("USE_OPENAI_REALTIME", "true").lower() == "true"
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    openai_base_url = os.getenv("OPENAI_BASE_URL")  # For local servers like LocalAI
+    openai_base_url = os.getenv("OPENAI_BASE_URL")
     
     if use_realtime and openai_api_key:
-        # Use OpenAI Realtime API - can be configured to use local server via OPENAI_BASE_URL
         logger.info("Using OpenAI Realtime API for voice model")
         realtime_config = {}
         if openai_base_url:
@@ -86,38 +319,18 @@ async def my_agent(ctx: JobContext):
             )
         )
     else:
-        # Fallback to LiveKit Inference models (requires API keys)
         logger.info("Using LiveKit Inference models")
         session = AgentSession(
-            # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-            # See all available models at https://docs.livekit.io/agents/models/stt/
             stt=inference.STT(model="assemblyai/universal-streaming", language="en"),
-            # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-            # See all available models at https://docs.livekit.io/agents/models/llm/
             llm=inference.LLM(model="openai/gpt-4.1-mini"),
-            # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-            # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
             tts=inference.TTS(
                 model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
             ),
-            # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-            # See more at https://docs.livekit.io/agents/build/turns
             turn_detection=MultilingualModel(),
             vad=ctx.proc.userdata["vad"],
-            # allow the LLM to generate a response while waiting for the end of turn
-            # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
             preemptive_generation=True,
         )
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
         agent=Assistant(),
         room=ctx.room,
@@ -130,7 +343,6 @@ async def my_agent(ctx: JobContext):
         ),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
 

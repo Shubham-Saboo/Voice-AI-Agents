@@ -12,6 +12,10 @@ dependencies = [
     "livekit-agents[openai,silero,turn-detector]~=1.3",
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv",
+    # Database dependencies (SQLite built-in, SQLAlchemy works with both)
+    "sqlalchemy>=2.0.0",
+    # OpenAI for entity extraction and Q&A
+    "openai>=1.12.0",
 ]
 
 [dependency-groups]
