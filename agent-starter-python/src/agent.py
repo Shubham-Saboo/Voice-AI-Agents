@@ -286,9 +286,14 @@ async def my_agent(ctx: JobContext):
             )
         )
     else:
+        # Use gpt-5-nano for extraction (cheapest OpenAI model for entity extraction)
+        # Use gpt-5-mini for general LLM tasks (better performance, still affordable)
+        # Available OpenAI models: openai/gpt-5-nano, openai/gpt-5-mini, openai/gpt-3.5-turbo, openai/gpt-4.1-mini
+        llm_model = os.getenv("LLM_MODEL", "openai/gpt-5-nano")
+        
         session = AgentSession(
             stt=inference.STT(model="assemblyai/universal-streaming", language="en"),
-            llm=inference.LLM(model="openai/gpt-4.1-mini"),
+            llm=inference.LLM(model=llm_model),
             tts=inference.TTS(
                 model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
             ),
