@@ -91,8 +91,11 @@ class DatabaseService:
             if conditions:
                 query = query.filter(and_(*conditions))
             
-            # Order by rating
-            query = query.order_by(Provider.rating.desc())
+            # Order by accepting_new_patients first (True first), then by rating
+            query = query.order_by(
+                Provider.accepting_new_patients.desc(),  # True comes before False
+                Provider.rating.desc()
+            )
             
             # Limit results
             providers = query.limit(limit).all()

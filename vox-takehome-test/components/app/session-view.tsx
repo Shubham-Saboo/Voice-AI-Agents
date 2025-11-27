@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import type { AppConfig } from '@/app-config';
 import { ChatTranscript } from '@/components/app/chat-transcript';
 import { PreConnectMessage } from '@/components/app/preconnect-message';
-import { TileLayout } from '@/components/app/tile-layout';
+import { ProviderDetailsPanel } from '@/components/app/provider-details-panel';
 import {
   AgentControlBar,
   type ControlBarControls,
@@ -70,49 +70,47 @@ export const SessionView = ({
   useDebugMode({ enabled: IN_DEVELOPMENT });
 
   const messages = useChatMessages();
-  const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const controls: ControlBarControls = {
     leave: true,
     microphone: true,
-    chat: appConfig.supportsChatInput,
-    camera: appConfig.supportsVideoInput,
-    screenShare: appConfig.supportsVideoInput,
+    chat: false,
+    camera: false,
+    screenShare: false,
   };
 
   useEffect(() => {
     const lastMessage = messages.at(-1);
-    const lastMessageIsLocal = lastMessage?.from?.isLocal === true;
-
-    if (scrollAreaRef.current && lastMessageIsLocal) {
+    if (scrollAreaRef.current && lastMessage) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
 
   return (
-    <section className="bg-background relative z-10 h-full w-full overflow-hidden" {...props}>
-      {/* Chat Transcript */}
-      <div
-        className={cn(
-          'fixed inset-0 grid grid-cols-1 grid-rows-1',
-          !chatOpen && 'pointer-events-none'
-        )}
-      >
-        <Fade top className="absolute inset-x-4 top-0 h-40" />
-        <ScrollArea ref={scrollAreaRef} className="px-4 pt-40 pb-[150px] md:px-6 md:pb-[180px]">
-          <ChatTranscript
-            hidden={!chatOpen}
-            messages={messages}
-            className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out"
-          />
-        </ScrollArea>
+    <section className="bg-background relative z-10 flex h-screen w-full flex-col overflow-hidden" {...props}>
+      <div className="border-input border-b bg-background fixed top-0 left-0 right-0 z-30 flex h-16 items-center justify-center">
+        <h1 className="text-foreground text-xl font-semibold">Healthcare Assistant</h1>
       </div>
 
-      {/* Tile Layout */}
-      <TileLayout chatOpen={chatOpen} />
+      <div className="relative z-20 flex h-[calc(100vh-120px)] md:h-[calc(100vh-160px)] overflow-hidden pt-16">
+        <div className="border-input flex w-1/2 flex-col border-r overflow-hidden bg-background">
+          <div className="border-input border-b bg-background flex-shrink-0 p-4">
+            <h2 className="text-foreground text-lg font-semibold">Conversation</h2>
+          </div>
+          <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 bg-background p-4">
+            <ChatTranscript
+              hidden={false}
+              messages={messages}
+              className="space-y-3"
+            />
+          </ScrollArea>
+        </div>
 
-      {/* Bottom */}
+        <div className="flex w-1/2 flex-col overflow-hidden bg-background">
+          <ProviderDetailsPanel />
+        </div>
+      </div>
       <MotionBottom
         {...BOTTOM_VIEW_MOTION_PROPS}
         className="fixed inset-x-3 bottom-0 z-50 md:inset-x-12"
@@ -122,7 +120,7 @@ export const SessionView = ({
         )}
         <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
           <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
-          <AgentControlBar controls={controls} onChatOpenChange={setChatOpen} />
+          <AgentControlBar controls={controls} />
         </div>
       </MotionBottom>
     </section>

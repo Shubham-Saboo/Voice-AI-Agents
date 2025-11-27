@@ -7,6 +7,11 @@ import {
   useRoomContext,
   useTranscriptions,
 } from '@livekit/components-react';
+import type { Provider } from '@/components/app/provider-card';
+
+export interface ExtendedChatMessage extends ReceivedChatMessage {
+  providers?: Provider[];
+}
 
 function transcriptionToChatMessage(textStream: TextStreamData, room: Room): ReceivedChatMessage {
   return {
@@ -28,11 +33,28 @@ export function useChatMessages() {
   const transcriptions: TextStreamData[] = useTranscriptions();
 
   const mergedTranscriptions = useMemo(() => {
-    const merged: Array<ReceivedChatMessage> = [
-      ...transcriptions.map((transcription) => transcriptionToChatMessage(transcription, room)),
-      ...chat.chatMessages,
-    ];
-    return merged.sort((a, b) => a.timestamp - b.timestamp);
+    const transcriptionMessages = transcriptions.map((transcription) => 
+      transcriptionToChatMessage(transcription, room)
+    );
+    
+    const allMessages = [...transcriptionMessages, ...chat.chatMessages];
+    const messageMap = new Map<string, ExtendedChatMessage>();
+    
+    for (const message of allMessages) {
+      const existing = messageMap.get(message.id);
+      if (!existing || 
+          message.timestamp > existing.timestamp ||
+          (message.timestamp === existing.timestamp && message.message.length > existing.message.length)) {
+        messageMap.set(message.id, message);
+      }
+    }
+    
+    return Array.from(messageMap.values()).sort((a, b) => {
+      if (a.timestamp !== b.timestamp) {
+        return a.timestamp - b.timestamp;
+      }
+      return a.id.localeCompare(b.id);
+    });
   }, [transcriptions, chat.chatMessages, room]);
 
   return mergedTranscriptions;

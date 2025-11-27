@@ -85,7 +85,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         'scroll-smooth font-sans antialiased'
       )}
     >
-      <body className="overflow-x-hidden">
+      <body className="overflow-x-hidden" suppressHydrationWarning>
         <Script
           id="theme-script"
           strategy="beforeInteractive"

@@ -1,20 +1,46 @@
 import { Button } from '@/components/livekit/button';
 
-function WelcomeImage() {
+function HealthcareIcon() {
   return (
     <svg
-      width="64"
-      height="64"
-      viewBox="0 0 64 64"
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="text-fg0 mb-4 size-16"
+      className="mb-6"
     >
+      <circle cx="40" cy="40" r="38" fill="#0066CC" fillOpacity="0.1" />
       <path
-        d="M15 24V40C15 40.7957 14.6839 41.5587 14.1213 42.1213C13.5587 42.6839 12.7956 43 12 43C11.2044 43 10.4413 42.6839 9.87868 42.1213C9.31607 41.5587 9 40.7957 9 40V24C9 23.2044 9.31607 22.4413 9.87868 21.8787C10.4413 21.3161 11.2044 21 12 21C12.7956 21 13.5587 21.3161 14.1213 21.8787C14.6839 22.4413 15 23.2044 15 24ZM22 5C21.2044 5 20.4413 5.31607 19.8787 5.87868C19.3161 6.44129 19 7.20435 19 8V56C19 56.7957 19.3161 57.5587 19.8787 58.1213C20.4413 58.6839 21.2044 59 22 59C22.7956 59 23.5587 58.6839 24.1213 58.1213C24.6839 57.5587 25 56.7957 25 56V8C25 7.20435 24.6839 6.44129 24.1213 5.87868C23.5587 5.31607 22.7956 5 22 5ZM32 13C31.2044 13 30.4413 13.3161 29.8787 13.8787C29.3161 14.4413 29 15.2044 29 16V48C29 48.7957 29.3161 49.5587 29.8787 50.1213C30.4413 50.6839 31.2044 51 32 51C32.7956 51 33.5587 50.6839 34.1213 50.1213C34.6839 49.5587 35 48.7957 35 48V16C35 15.2044 34.6839 14.4413 34.1213 13.8787C33.5587 13.3161 32.7956 13 32 13ZM42 21C41.2043 21 40.4413 21.3161 39.8787 21.8787C39.3161 22.4413 39 23.2044 39 24V40C39 40.7957 39.3161 41.5587 39.8787 42.1213C40.4413 42.6839 41.2043 43 42 43C42.7957 43 43.5587 42.6839 44.1213 42.1213C44.6839 41.5587 45 40.7957 45 40V24C45 23.2044 44.6839 22.4413 44.1213 21.8787C43.5587 21.3161 42.7957 21 42 21ZM52 17C51.2043 17 50.4413 17.3161 49.8787 17.8787C49.3161 18.4413 49 19.2044 49 20V44C49 44.7957 49.3161 45.5587 49.8787 46.1213C50.4413 46.6839 51.2043 47 52 47C52.7957 47 53.5587 46.6839 54.1213 46.1213C54.6839 45.5587 55 44.7957 55 44V20C55 19.2044 54.6839 18.4413 54.1213 17.8787C53.5587 17.3161 52.7957 17 52 17Z"
-        fill="currentColor"
+        d="M40 25C39.4477 25 39 25.4477 39 26V38H27C26.4477 38 26 38.4477 26 39V41C26 41.5523 26.4477 42 27 42H39V54C39 54.5523 39.4477 55 40 55H42C42.5523 55 43 54.5523 43 54V42H55C55.5523 42 56 41.5523 56 41V39C56 38.4477 55.5523 38 55 38H43V26C43 25.4477 42.5523 25 42 25H40Z"
+        fill="#0066CC"
       />
+      <circle cx="40" cy="40" r="35" stroke="#0066CC" strokeWidth="2" strokeOpacity="0.2" fill="none" />
     </svg>
+  );
+}
+
+interface FeatureCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+function FeatureCard({ icon, title, description }: FeatureCardProps) {
+  return (
+    <div className="bg-background border-input/50 rounded-xl border p-6 shadow-sm transition-shadow hover:shadow-md">
+      <div className="text-primary mb-3 flex justify-center">{icon}</div>
+      <h3 className="text-foreground mb-2 text-center text-sm font-semibold">{title}</h3>
+      <p className="text-muted-foreground text-center text-xs leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function FeatureIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-full">
+      {children}
+    </div>
   );
 }
 
@@ -29,33 +55,148 @@ export const WelcomeView = ({
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center text-center">
-        <WelcomeImage />
+    <div
+      ref={ref}
+      className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden"
+    >
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-50 via-white to-white dark:from-blue-950/20 dark:via-background dark:to-background" />
+      
+      {/* Subtle pattern overlay */}
+      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]">
+        <div className="h-full w-full bg-[radial-gradient(circle_at_1px_1px,_#0066CC_1px,_transparent_0)] bg-[length:40px_40px]" />
+      </div>
 
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
+      {/* Main content */}
+      <section className="relative z-10 flex w-full max-w-4xl flex-col items-center justify-center px-6 py-12 text-center">
+        {/* Healthcare Icon */}
+        <div className="mb-8">
+          <HealthcareIcon />
+        </div>
+
+        {/* Hero Text */}
+        <h1 className="text-foreground mb-4 text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
+          Your Healthcare Provider Assistant
+        </h1>
+        
+        <p className="text-muted-foreground mb-8 max-w-2xl text-lg leading-relaxed md:text-xl">
+          Find the right healthcare provider for you. Ask questions, get answers, and discover providers that match your needs.
         </p>
 
-        <Button variant="primary" size="lg" onClick={onStartCall} className="mt-6 w-64 font-mono">
+        {/* CTA Button */}
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={onStartCall}
+          className="mb-12 h-14 w-full max-w-xs rounded-full text-base font-semibold shadow-lg transition-all hover:scale-105 hover:shadow-xl md:w-80"
+        >
           {startButtonText}
         </Button>
-      </section>
 
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
-          >
-            Voice AI quickstart
-          </a>
-          .
-        </p>
-      </div>
+        {/* Features Grid */}
+        <div className="grid w-full max-w-3xl grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <FeatureCard
+            icon={
+              <FeatureIcon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M12 2L2 7L12 12L22 7L12 2Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 17L12 22L22 17"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 12L12 17L22 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </FeatureIcon>
+            }
+            title="Find Providers by Specialty"
+            description="Search by medical specialty, location, or specific conditions"
+          />
+          
+          <FeatureCard
+            icon={
+              <FeatureIcon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M22 16.92V19.92C22 20.52 21.52 21 20.92 21H3.08C2.48 21 2 20.52 2 19.92V16.92"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 11L12 21"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 11L16 7L12 3L8 7L12 11Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </FeatureIcon>
+            }
+            title="Get Contact Information"
+            description="Access phone numbers, emails, and addresses instantly"
+          />
+          
+          <FeatureCard
+            icon={
+              <FeatureIcon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="8" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="2" />
+                  <path
+                    d="M8 8V6C8 4.89543 8.89543 4 10 4H14C15.1046 4 16 4.89543 16 6V8"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                  <path d="M8 13H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M8 17H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </FeatureIcon>
+            }
+            title="Check Insurance Coverage"
+            description="See which insurance plans each provider accepts"
+          />
+          
+          <FeatureCard
+            icon={
+              <FeatureIcon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                  <path
+                    d="M12 6V12L16 14"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </FeatureIcon>
+            }
+            title="24/7 Availability"
+            description="Get help finding providers anytime, day or night"
+          />
+        </div>
+      </section>
     </div>
   );
 };

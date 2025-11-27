@@ -102,7 +102,11 @@ export function useRoom(appConfig: AppConfig) {
 
   const endSession = useCallback(() => {
     setIsSessionActive(false);
-  }, []);
+    // Disconnect the room immediately when ending the session
+    if (room.state !== 'disconnected') {
+      room.disconnect();
+    }
+  }, [room]);
 
   return { room, isSessionActive, startSession, endSession };
 }

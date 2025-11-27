@@ -23,8 +23,8 @@ const VIEW_MOTION_PROPS = {
   animate: 'visible',
   exit: 'hidden',
   transition: {
-    duration: 0.5,
-    ease: 'linear',
+    duration: 0.3,
+    ease: 'easeInOut',
   },
 };
 
@@ -44,16 +44,7 @@ export function ViewController() {
   };
 
   return (
-    <AnimatePresence mode="wait">
-      {/* Welcome screen */}
-      {!isSessionActive && (
-        <MotionWelcomeView
-          key="welcome"
-          {...VIEW_MOTION_PROPS}
-          startButtonText={appConfig.startButtonText}
-          onStartCall={startSession}
-        />
-      )}
+    <AnimatePresence>
       {/* Session view */}
       {isSessionActive && (
         <MotionSessionView
@@ -62,6 +53,17 @@ export function ViewController() {
           appConfig={appConfig}
           onAnimationComplete={handleAnimationComplete}
         />
+      )}
+      {/* Welcome screen - render when session is not active, with higher z-index to cover any fixed elements */}
+      {!isSessionActive && (
+        <div className="fixed inset-0 z-[100]">
+          <MotionWelcomeView
+            key="welcome"
+            {...VIEW_MOTION_PROPS}
+            startButtonText={appConfig.startButtonText}
+            onStartCall={startSession}
+          />
+        </div>
       )}
     </AnimatePresence>
   );

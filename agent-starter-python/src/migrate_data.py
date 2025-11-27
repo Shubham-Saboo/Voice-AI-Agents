@@ -82,7 +82,6 @@ def migrate_to_database(providers: list):
         
         session.commit()
         logger.info(f"Successfully migrated {len(providers)} providers to database")
-        logger.info("✅ Junction tables populated with insurance and language data")
         
     except Exception as e:
         session.rollback()
@@ -109,12 +108,8 @@ def main():
     # Load providers
     providers = load_providers_from_json(json_path)
     
-    # Migrate to SQLite/PostgreSQL
-    logger.info("Migrating to database (SQLite by default)...")
     migrate_to_database(providers)
-    
-    logger.info("✅ Migration completed successfully!")
-    logger.info("📊 Database: providers.db (SQLite)")
+    logger.info("Migration completed successfully")
 
 
 if __name__ == "__main__":
