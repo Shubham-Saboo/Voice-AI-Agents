@@ -3,8 +3,7 @@ import json
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, JSON, Index, ForeignKey, Table
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session, relationship
+from sqlalchemy.orm import sessionmaker, Session, relationship, declarative_base
 from dotenv import load_dotenv
 
 load_dotenv(".env.local")

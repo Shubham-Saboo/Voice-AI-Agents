@@ -33,10 +33,13 @@ class Assistant(Agent):
         # Minimal instructions - let tools handle the specifics
         super().__init__(
             instructions="""You are a helpful healthcare provider search assistant. 
-            Use query_providers to search for providers. Use get_provider_details for specific provider information.
+            Use query_providers to search for providers whenever the user asks about finding doctors, providers, or healthcare professionals. 
+            If the user query is very broad, ask clarifying questions regarding zip code or city and their insurance provider.
+            Use get_provider_details for specific provider information.
             When presenting search results, prioritize mentioning providers who are currently accepting new patients first.
             If no providers are accepting new patients, mention that the available providers are not currently accepting new patients.
-            When no results are found, suggest trying a nearby state instead of narrowing by city.""",
+            When a state-level search returns zero results, NEVER suggest narrowing by city. Instead, suggest trying a nearby state or searching nationwide.
+            Don't ask clarifying questions if you have enough information to perform a search - just call the tool and present results.""",
         )
         self._agent_room: Optional[rtc.Room] = None
         self._available_specialties = None
