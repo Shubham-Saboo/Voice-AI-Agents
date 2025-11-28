@@ -291,15 +291,15 @@ async def test_handles_zero_results_gracefully() -> None:
 
 
 @pytest.mark.asyncio
-async def test_calls_get_provider_details() -> None:
-    """Test that the agent calls get_provider_details for specific provider questions."""
+async def test_uses_search_results_for_followup() -> None:
+    """Test that the agent uses information from previous search results for follow-up questions."""
     async with (
         _llm() as llm,
         AgentSession(llm=llm) as session,
     ):
         await session.start(Assistant())
 
-        # First, search for providers to get an ID
+        # First, search for providers
         search_result = await session.run(user_input="Find me a doctor in Texas")
         
         # Get the function call result
@@ -318,13 +318,24 @@ async def test_calls_get_provider_details() -> None:
                 llm, intent="Provides search results for providers in Texas."
             )
 
-        # Now ask about a specific provider (using a provider ID that might exist)
+        # Now ask about a specific provider from the search results
         # Note: This test assumes there's at least one provider in the database
         detail_result = await session.run(user_input="What's the phone number of the first doctor you found?")
 
-        # Should call get_provider_details if the agent can extract a provider ID
-        # This might require the agent to have context from previous search
-        # The test verifies the agent attempts to use the tool appropriately
+        # Agent should use information from previous search results (which contain complete details)
+        # No need to call a separate tool - search results already include phone numbers
+        await (
+            detail_result.expect.next_event()
+            .is_message(role="assistant")
+            .judge(
+                llm,
+                intent="""
+                Provides phone number information from the previous search results.
+                Does not make up phone numbers.
+                Uses the information that was already returned in the search.
+                """,
+            )
+        )
 
 
 @pytest.mark.asyncio
@@ -409,101 +420,58 @@ async def test_no_redundant_llm_calls() -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_provider_id() -> None:
-    """Test that the agent handles invalid provider IDs gracefully."""
+async def test_handles_provider_id_query() -> None:
+    """Test that the agent handles provider ID queries by suggesting search instead."""
     async with (
         _llm() as llm,
         AgentSession(llm=llm) as session,
     ):
         await session.start(Assistant())
 
-        # Try to get details for a non-existent provider ID
+        # User asks about a provider ID (unrealistic but should be handled gracefully)
         result = await session.run(user_input="Get me details for provider ID 99999")
 
-        # Should call get_provider_details tool
-        func_call = (
+        # Agent should explain that it searches by name/location, not ID
+        # Should suggest using query_providers with provider_name instead
+        await (
             result.expect.next_event()
-            .is_function_call(name="get_provider_details")
+            .is_message(role="assistant")
+            .judge(
+                llm,
+                intent="""
+                Explains that it searches for providers by name, location, specialty, etc.
+                Suggests searching for providers by name or other criteria instead of ID.
+                Offers to help search for providers.
+                """,
+            )
         )
-        assert func_call is not None
-
-        # Skip FunctionCallOutputEvent and check response
-        try:
-            await (
-                result.expect.next_event()
-                .is_message(role="assistant")
-                .judge(
-                    llm,
-                    intent="""
-                    Acknowledges that the provider was not found.
-                    Should inform the user that the provider ID doesn't exist.
-                    May suggest searching for providers instead.
-                    """,
-                )
-            )
-        except AssertionError:
-            await (
-                result.expect.next_event()
-                .is_message(role="assistant")
-                .judge(
-                    llm,
-                    intent="""
-                    Acknowledges that the provider was not found.
-                    Should inform the user that the provider ID doesn't exist.
-                    May suggest searching for providers instead.
-                    """,
-                )
-            )
 
 
 @pytest.mark.asyncio
-async def test_negative_provider_id() -> None:
-    """Test that the agent handles negative provider IDs."""
+async def test_handles_negative_provider_id() -> None:
+    """Test that the agent handles negative provider IDs gracefully."""
     async with (
         _llm() as llm,
         AgentSession(llm=llm) as session,
     ):
         await session.start(Assistant())
 
-        # Try with negative ID (should be rejected or handled gracefully)
+        # Try with negative ID (should be handled gracefully)
         result = await session.run(user_input="Get details for provider ID -1")
 
-        # Agent should either not call the tool or handle it gracefully
-        # Check if tool is called or if agent responds appropriately
-        first_event = result.expect.next_event()
-        
-        # Could be a function call or a message explaining the issue
-        try:
-            func_call = first_event.is_function_call(name="get_provider_details")
-            assert func_call is not None
-            # If tool is called, skip output and check response
-            try:
-                await (
-                    result.expect.next_event()
-                    .is_message(role="assistant")
-                    .judge(
-                        llm,
-                        intent="Handles invalid provider ID appropriately.",
-                    )
-                )
-            except AssertionError:
-                await (
-                    result.expect.next_event()
-                    .is_message(role="assistant")
-                    .judge(
-                        llm,
-                        intent="Handles invalid provider ID appropriately.",
-                    )
-                )
-        except AssertionError:
-            # Agent might respond directly without calling tool
-            await (
-                first_event.is_message(role="assistant")
-                .judge(
-                    llm,
-                    intent="Explains that the provider ID is invalid or suggests searching instead.",
-                )
+        # Agent should explain that it searches by name/location, not ID
+        await (
+            result.expect.next_event()
+            .is_message(role="assistant")
+            .judge(
+                llm,
+                intent="""
+                Explains that it searches for providers by name, location, specialty, etc.
+                Suggests searching for providers by name or other criteria instead of ID.
+                Offers to help search for providers.
+                """,
             )
+        )
 
 
 @pytest.mark.asyncio

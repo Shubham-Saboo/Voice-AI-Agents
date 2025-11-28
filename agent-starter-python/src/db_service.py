@@ -4,6 +4,14 @@ from sqlalchemy import or_, and_, distinct
 from database import db, Provider, provider_insurance, provider_language, ProviderInsurance, ProviderLanguage
 
 logger = logging.getLogger("db_service")
+# Prevent propagation to root logger to avoid LiveKit's duplicate logging
+logger.propagate = False
+# Add our own handler if not already present
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
 class DatabaseService:
@@ -40,6 +48,7 @@ class DatabaseService:
         self,
         state: Optional[str] = None,
         city: Optional[str] = None,
+        zipcode: Optional[str] = None,
         specialty: Optional[str] = None,
         language: Optional[str] = None,
         insurance: Optional[str] = None,
@@ -71,6 +80,11 @@ class DatabaseService:
             if city:
                 conditions.append(Provider.city.ilike(f"%{city}%"))
             
+            if zipcode:
+                # Support both 5-digit and ZIP+4 formats
+                zipcode_clean = zipcode.replace("-", "").strip()
+                conditions.append(Provider.zip_code.ilike(f"%{zipcode_clean}%"))
+            
             # Specialty filter
             if specialty:
                 conditions.append(Provider.specialty.ilike(f"%{specialty}%"))
@@ -100,8 +114,43 @@ class DatabaseService:
             # Limit results
             providers = query.limit(limit).all()
             
-            # Convert to dict (populate JSON arrays from junction tables)
-            results = [self._provider_to_dict(p, session) for p in providers]
+            if not providers:
+                return []
+            
+            # Bulk fetch insurance and languages for all providers (avoids N+1 queries)
+            provider_ids = [p.id for p in providers]
+            
+            # Bulk fetch all insurance for these providers (single query instead of N queries)
+            insurance_rows = session.query(
+                provider_insurance.c.provider_id,
+                provider_insurance.c.insurance
+            ).filter(
+                provider_insurance.c.provider_id.in_(provider_ids)
+            ).all()
+            insurance_map = {}
+            for provider_id, insurance in insurance_rows:
+                if provider_id not in insurance_map:
+                    insurance_map[provider_id] = []
+                insurance_map[provider_id].append(insurance)
+            
+            # Bulk fetch all languages for these providers (single query instead of N queries)
+            language_rows = session.query(
+                provider_language.c.provider_id,
+                provider_language.c.language
+            ).filter(
+                provider_language.c.provider_id.in_(provider_ids)
+            ).all()
+            language_map = {}
+            for provider_id, language in language_rows:
+                if provider_id not in language_map:
+                    language_map[provider_id] = []
+                language_map[provider_id].append(language)
+            
+            # Convert to dict using pre-fetched data (no additional queries)
+            results = [
+                self._provider_to_dict_fast(p, insurance_map.get(p.id, []), language_map.get(p.id, []))
+                for p in providers
+            ]
             logger.info(f"✅ Query returned {len(results)} providers")
             
             return results
@@ -109,31 +158,8 @@ class DatabaseService:
         finally:
             session.close()
     
-    def get_provider_by_id(self, provider_id: int) -> Optional[Dict[str, Any]]:
-        """Get provider by ID"""
-        session = db.get_session()
-        try:
-            provider = session.query(Provider).filter(Provider.id == provider_id).first()
-            if provider:
-                return self._provider_to_dict(provider, session)
-            return None
-        finally:
-            session.close()
-    
-    def _provider_to_dict(self, provider: Provider, session) -> Dict[str, Any]:
-        """Convert Provider model to dictionary, populating arrays from junction tables"""
-        # Get insurance from junction table
-        insurance_list = session.query(provider_insurance.c.insurance).filter(
-            provider_insurance.c.provider_id == provider.id
-        ).all()
-        insurance_accepted = [ins[0] for ins in insurance_list]
-        
-        # Get languages from junction table
-        language_list = session.query(provider_language.c.language).filter(
-            provider_language.c.provider_id == provider.id
-        ).all()
-        languages = [lang[0] for lang in language_list]
-        
+    def _provider_to_dict_fast(self, provider: Provider, insurance_accepted: List[str], languages: List[str]) -> Dict[str, Any]:
+        """Convert Provider model to dictionary using pre-fetched insurance and languages (no DB queries)"""
         return {
             "id": provider.id,
             "full_name": provider.full_name,

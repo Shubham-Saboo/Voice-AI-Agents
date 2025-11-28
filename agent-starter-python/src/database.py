@@ -9,6 +9,14 @@ from dotenv import load_dotenv
 load_dotenv(".env.local")
 
 logger = logging.getLogger("database")
+# Prevent propagation to root logger to avoid LiveKit's duplicate logging
+logger.propagate = False
+# Add our own handler if not already present
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 Base = declarative_base()
 
