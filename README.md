@@ -1,4 +1,4 @@
-# Voxology - Healthcare Provider Voice Assistant
+# Healthcare Provider Voice Assistant
 
 A voice-powered AI assistant that helps users find healthcare providers through natural conversation. Built with LiveKit Agents for real-time voice interaction and a Next.js frontend for a seamless user experience.
 
